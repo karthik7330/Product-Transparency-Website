@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -20,23 +19,50 @@ export function ReportDisplay({ formData, summary, onReset }: ReportDisplayProps
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const handleDownloadPdf = async () => {
-    if (!reportRef.current) return;
     setIsGeneratingPdf(true);
+    const pdf = new jsPDF();
     
-    const canvas = await html2canvas(reportRef.current, { 
-      scale: 2,
-      useCORS: true,
-      backgroundColor: document.documentElement.classList.contains('dark') ? '#1a202c' : '#f5f5f5',
-    });
+    pdf.setFontSize(18);
+    pdf.text('Product Transparency Report', 14, 22);
+
+    pdf.setFontSize(12);
+    pdf.text('AI-generated summary and full product details.', 14, 30);
+
+    pdf.setFontSize(14);
+    pdf.setTextColor(64, 150, 246); // primary color
+    pdf.text('AI Summary', 14, 45);
+    pdf.setTextColor(0, 0, 0);
     
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'px',
-      format: [canvas.width, canvas.height]
+    // Use splitTextToSize for auto-wrapping
+    const summaryLines = pdf.splitTextToSize(summary, 180);
+    pdf.setFontSize(10);
+    pdf.text(summaryLines, 14, 52);
+
+    let yPosition = 52 + (summaryLines.length * 5) + 10;
+
+    pdf.setFontSize(14);
+    pdf.setTextColor(64, 150, 246);
+    pdf.text('Full Details', 14, yPosition);
+    pdf.setTextColor(0, 0, 0);
+    yPosition += 7;
+
+    pdf.setFontSize(12);
+    Object.entries(formData).forEach(([question, answer]) => {
+      if (yPosition > 280) { // check for new page
+          pdf.addPage();
+          yPosition = 20;
+      }
+      pdf.setFont('helvetica', 'bold');
+      const questionLines = pdf.splitTextToSize(`Q: ${question}`, 180);
+      pdf.text(questionLines, 14, yPosition);
+      yPosition += (questionLines.length * 5);
+
+      pdf.setFont('helvetica', 'normal');
+      const answerLines = pdf.splitTextToSize(`A: ${answer}`, 180);
+      pdf.text(answerLines, 14, yPosition);
+      yPosition += (answerLines.length * 5) + 5; // add some space after answer
     });
 
-    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
     pdf.save('product-transparency-report.pdf');
     setIsGeneratingPdf(false);
   };
